@@ -698,6 +698,86 @@ std::shared_ptr<ProcessGroup::Work> ProcessGroupNCCL::collective(
       [](std::vector<at::cuda::CUDAStream>&) {});
 }
 
+std::shared_ptr<ProcessGroup::Work> ProcessGroupNCCL::sgd_update(
+    at::Tensor& weight,
+    at::Tensor& gradient,
+    const AllreduceOptions& opts) {
+  
+  if ((!weight.is_cuda() || weight.is_sparse()) ||
+      (!gradient.is_cuda() || gradient.is_sparse()) ) {
+    throw std::runtime_error("Tensors must be CUDA and dense");
+  }
+  if (!weight.is_contiguous() || !gradient.is_contiguous()) {
+    throw std::runtime_error("Tensors must be contiguous");
+  }
+  if (weight.device() != gradient.device()) {
+    throw std::runtime_error("Tensors must be on the same device");
+  }
+  if (weight.numel() != gradient.numel()) {
+    throw std::runtime_error("Tensors must be the same size");
+  }
+  
+  std::vector<at::Tensor> inputs = {weight, gradient};
+  const auto devices = getDeviceList(inputs);
+  const auto key = getKeyFromDevices(devices);
+  auto& ncclComms = getNCCLComm(key, devices);
+
+  // First let NCCL streams wait for input tensors allocation streams
+  syncStreams(devices, ncclEvents_[key], ncclStreams_[key]);
+  
+  // Work itself will create the CUDA events on all GPUs of tensors
+  auto work = initWork(devices);
+
+  at::cuda::OptionalCUDAGuard gpuGuard;
+
+  for (size_t i = 0; i < inputs.size(); ++i) {
+    gpuGuard.set_index(devices[i].index());
+    at::cuda::CUDAStream& ncclStream = ncclStreams_[key][i];
+
+    // Both `inputs' and `outputs' are created on a worker stream and used in
+    // different ncclStreams.  Hence, both must record the ncclStream to
+    // prevent being freed before the collective finishes.
+    //
+    // We only record `inputs' here, and leave recording `outputs' to `fn' for
+    // operations where `inputs' and `outputs' are not the same.
+    //
+    // See [Sync Streams].
+    c10::cuda::CUDACachingAllocator::recordStream(
+        inputs[i].storage().data_ptr(), ncclStream);
+  }
+
+  {
+    AutoNcclGroup nccl_group_guard;
+    for (size_t i = 0; i < inputs.size(); ++i) {
+      gpuGuard.set_index(devices[i].index());
+      at::cuda::CUDAStream& ncclStream = ncclStreams_[key][i];
+    }
+    // use gradient's stream for allreduce
+    at::cuda::CUDAStream& ncclStream = ncclStreams_[key][1];
+    C10D_NCCL_CHECK(ncclAllReduce2(gradient.data_ptr(),
+				   nullptr,
+				   weight.data_ptr(),
+				   nullptr,
+				   gradient.numel(),
+				   getNcclDataType(gradient.scalar_type()),
+				   ncclOp[opts.reduceOp],
+				   ncclComms[1]->getNcclComm(),
+				   ncclStream.stream()));
+  }
+
+  // Event should only be recorded after the ncclGroupEnd()
+  for (size_t i = 0; i < inputs.size(); ++i) {
+    at::cuda::CUDAStream& ncclStream = ncclStreams_[key][i];
+    work->cudaEvents_[i].record(ncclStream);
+    work->ncclComms_[i] = ncclComms[i];
+    work->blockingWait_ = blockingWait_;
+    work->opTimeout_ = opTimeout_;
+    work->store_ = store_;
+  }
+
+  return work;  
+}
+
 std::shared_ptr<ProcessGroup::Work> ProcessGroupNCCL::allreduce(
     std::vector<at::Tensor>& tensors,
     const AllreduceOptions& opts) {
@@ -720,7 +800,7 @@ std::shared_ptr<ProcessGroup::Work> ProcessGroupNCCL::allreduce(
             stream.stream());
       });
 }
-
+  
 std::shared_ptr<ProcessGroup::Work> ProcessGroupNCCL::allreduce_coalesced(
     std::vector<at::Tensor>& tensors,
     const AllreduceCoalescedOptions& opts) {

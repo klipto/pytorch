@@ -165,6 +165,11 @@ class ProcessGroupNCCL : public ProcessGroup {
       std::vector<at::Tensor>& tensors,
       const BroadcastOptions& opts = BroadcastOptions()) override;
 
+  std::shared_ptr<ProcessGroup::Work> sgd_update(
+      at::Tensor& weight,
+      at::Tensor& gradient,
+      const AllreduceOptions& opts = AllreduceOptions()) override;
+  
   std::shared_ptr<ProcessGroup::Work> allreduce(
       std::vector<at::Tensor>& tensors,
       const AllreduceOptions& opts = AllreduceOptions()) override;
