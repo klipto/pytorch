@@ -846,6 +846,8 @@ def all_reduce_multigpu(tensor_list,
         None, if not async_op or if not part of the group
 
     """
+
+    print("distributed_c10d.py:850")
     if _rank_not_in_group(group):
         return
 
@@ -862,17 +864,17 @@ def all_reduce_multigpu(tensor_list,
     else:
         work.wait()
 
-def sgd_update(weight, gradient, op=ReduceOp.SUM, group=group.WORLD, async_op=False):
+def sgd_update(weight, gradient, alpha, op=ReduceOp.SUM, group=group.WORLD, async_op=False):
     _check_single_tensor(weight, "weight")
     _check_single_tensor(gradient, "gradient")
     if _rank_not_in_group(group):
         return
-
+    
     opts = AllreduceOptions()
     opts.reduceOp = op
     if group == GroupMember.WORLD:
         _check_default_pg()
-        work = _default_pg.sgd_update(weight, gradient, opts)
+        work = _default_pg.sgd_update([weight], [gradient], [alpha], opts)
     else:
         assert False, "not implemented"
         work = group.allreduce([tensor], opts)
@@ -906,6 +908,7 @@ def all_reduce(tensor,
         None, if not async_op or if not part of the group
 
     """
+    print("distributed_c10d.py:911")
     _check_single_tensor(tensor, "tensor")
     if _rank_not_in_group(group):
         return

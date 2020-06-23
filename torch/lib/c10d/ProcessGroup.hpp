@@ -112,8 +112,9 @@ class ProcessGroup {
       const BroadcastOptions& opts = BroadcastOptions()) = 0;
 
   virtual std::shared_ptr<ProcessGroup::Work> sgd_update(
-      at::Tensor& weight,
-      at::Tensor& gradient,
+      std::vector<at::Tensor>& weight,
+      std::vector<at::Tensor>& gradient,
+      std::vector<at::Tensor>& alpha,
       const AllreduceOptions& opts = AllreduceOptions()) {
     throw std::runtime_error("not impl");
   }

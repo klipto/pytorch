@@ -305,6 +305,7 @@ They are used in specifying strategies for reduction collectives, e.g.,
 	 &::c10d::ProcessGroup::sgd_update,
 	 py::arg("weight"),
 	 py::arg("gradient"),
+   py::arg("alpha"),
 	 py::arg("opts") = ::c10d::AllreduceOptions(),
 	 py::call_guard<py::gil_scoped_release>())
     
