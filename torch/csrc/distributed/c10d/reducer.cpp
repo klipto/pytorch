@@ -268,6 +268,7 @@ void Reducer::mark_variable_ready_sparse(VariableIndex index) {
 // model parameter has been accumulated into its gradient tensor.
 // This function is only to be called from the autograd thread.
 void Reducer::autograd_hook(VariableIndex index) {
+  return;
   printf("%s:%d\n", __FILE__, __LINE__);
   std::lock_guard<std::mutex> lock(this->mutex_);
   // Since it gets here, this param has been used for this iteration. We want

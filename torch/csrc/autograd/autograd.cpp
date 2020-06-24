@@ -62,6 +62,7 @@ variable_list run_backward(
     bool create_graph,
     const variable_list& inputs,
     bool allow_unused) {
+  printf("%s:%d\n", __FILE__, __LINE__);
   size_t num_tensors = outputs.size();
   edge_list roots;
   roots.reserve(num_tensors);
