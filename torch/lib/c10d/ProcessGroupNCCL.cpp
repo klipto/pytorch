@@ -791,7 +791,7 @@ std::shared_ptr<ProcessGroup::Work> ProcessGroupNCCL::sgd_update(
     const AllreduceOptions& opts) {
   check_gpu_tensors(weights);
   check_gpu_tensors(gradients);
-  printf("%s:sgd_update\n", __FILE__);
+  // printf("%s:sgd_update\n", __FILE__);
 
   return collective(
       weights,
@@ -828,7 +828,7 @@ std::shared_ptr<ProcessGroup::Work> ProcessGroupNCCL::allreduce(
     std::vector<at::Tensor>& tensors,
     const AllreduceOptions& opts) {
   check_gpu_tensors(tensors);
-  printf("%s:%d\n", __FILE__, __LINE__);
+  // printf("%s:%d\n", __FILE__, __LINE__);
   return collective(
       tensors,
       tensors,

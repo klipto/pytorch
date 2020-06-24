@@ -212,7 +212,8 @@ class DistributedDataParallel(Module):
                  output_device=None, dim=0, broadcast_buffers=True,
                  process_group=None, bucket_cap_mb=25,
                  find_unused_parameters=False,
-                 check_reduction=False):
+                 check_reduction=False,
+                 reduce_grads=True):
 
         super(DistributedDataParallel, self).__init__()
 
@@ -262,6 +263,7 @@ class DistributedDataParallel(Module):
         self.find_unused_parameters = find_unused_parameters
         self.require_backward_grad_sync = True
         self.require_forward_param_sync = True
+        self.reduce_grads = reduce_grads
 
         if check_reduction:
             # This argument is no longer used since the reducer
@@ -373,12 +375,14 @@ class DistributedDataParallel(Module):
         # Note: reverse list of buckets because we want to approximate the
         # order in which their gradients are produced, and assume they
         # are used in the forward pass in the order they are defined.
-        self.reducer = dist.Reducer(
-            parameters,
-            list(reversed(bucket_indices)),
-            self.process_group,
-            expect_sparse_gradient)
-
+        print("distributed.py: 376")
+        if self.reduce_grads:
+            self.reducer = dist.Reducer(
+                parameters,
+                list(reversed(bucket_indices)),
+                self.process_group,
+                expect_sparse_gradient)
+        print("distributed.py: 382")
         # passing a handle to torch.nn.SyncBatchNorm layer
         self._passing_sync_batchnorm_handle(self._module_copies)
 
@@ -449,7 +453,7 @@ class DistributedDataParallel(Module):
         else:
             output = self.module(*inputs, **kwargs)
 
-        if torch.is_grad_enabled() and self.require_backward_grad_sync:
+        if torch.is_grad_enabled() and self.reduce_grads and self.require_backward_grad_sync:
             self.require_forward_param_sync = True
             # We'll return the output object verbatim since it is a freeform
             # object. We need to find any tensors in this object, though,

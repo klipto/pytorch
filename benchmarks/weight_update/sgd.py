@@ -77,9 +77,10 @@ def train(gpu, args):
     # define loss function (criterion) and optimizer
     criterion = nn.L1Loss().cuda(gpu)
     optimizer = torch.optim.SGD(orig_model.parameters(), 1)
-   
+    
+    use_fused_sgd = True
     # Wrap the model
-    model = nn.parallel.DistributedDataParallel(orig_model, device_ids=[gpu])
+    model = nn.parallel.DistributedDataParallel(orig_model, device_ids=[gpu], reduce_grads=not use_fused_sgd)
     params = [m for m in model.parameters()]
     # Data loading code
     train_dataset = MyIterableDataset(start = 0, end = 1000, gpu = gpu)
@@ -94,13 +95,14 @@ def train(gpu, args):
                                             #    sampler=train_sampler
                                                )
 
-    start = datetime.now()
     alpha = torch.ones([1], dtype=torch.float32).cuda(non_blocking=True)
     total_step = len(train_loader)/batch_size
     labels = torch.ones([100, 1], dtype=torch.long).cuda(non_blocking=True) #labels.cuda(non_blocking=True)
+    total_time = 0
 
-    for epoch in range(1):
-        for i, images in enumerate(train_loader):
+    for i, images in enumerate(train_loader):
+        start = datetime.now()
+        for epoch in range(1000):
             # Forward pass
             outputs = model(images)
             loss = criterion(outputs, labels)
@@ -110,25 +112,27 @@ def train(gpu, args):
             
             #print("optimizer.step()")
             #print(params[0].grad)
-            if False:
+            if use_fused_sgd:
                 loss.backward()
                 # weight = torch.ones([TENSOR_SIZE], dtype=torch.float32).cuda(non_blocking=True)
                 # grad = torch.ones([TENSOR_SIZE], dtype=torch.float32).cuda(non_blocking=True)
                 torch.distributed.sgd_update(params[0], params[0].grad, alpha)
-                # print("grad", params[0].grad)
+                # print("gpu", gpu, "grad", params[0].grad)
                 # print("weight", orig_model.fc.weight)
             else:
                 loss.backward()
                 optimizer.step()
-                # print("grad", params[0].grad)
+                # print("gpu ", gpu, " grad", params[0].grad)
                 # print("weight", params[0])
             # torch.distributed.all_reduce(torch.zeros([TENSOR_SIZE], dtype=torch.float32).cuda(non_blocking=True))
            # print(model.grad)
-            if (i + 1) % 1 == 0:
-                print('GPU {} Epoch [{}/{}], Step [{}/{}], Loss: {:.4f}'.format(gpu, epoch + 1, args.epochs, i + 1, total_step,
-                                                                         loss.item()))
+            # if (i + 1) % 1 == 0:
+            #     print('GPU {} Epoch [{}/{}], Step [{}/{}], Loss: {:.4f}'.format(gpu, epoch + 1, args.epochs, i + 1, total_step,
+            #                                                              loss.item()))
+        end = datetime.now()
+        total_time += (end - start).total_seconds()
     if gpu == 0:
-        print("Training complete in: " + str(datetime.now() - start))
+        print("Training complete in: " + str(total_time) + " seconds")
 
 
 if __name__ == '__main__':

@@ -55,7 +55,7 @@ Reducer::Reducer(
       backward_stats_base_(0) {
   TORCH_CHECK(replicas_.size() >= 1, "Expected at least one model replica.");
   TORCH_CHECK(replicas_[0].size() >= 1, "Expected at least one parameter.");
-  printf("%s:%d\n", __FILE__, __LINE__);
+  // printf("%s:%d\n", __FILE__, __LINE__);
   // If `expect_sparse_gradients` is not specified, initialize it such that
   // we do not expect sparse gradients for any parameter.
   if (expect_sparse_gradients_.empty()) {
@@ -268,8 +268,7 @@ void Reducer::mark_variable_ready_sparse(VariableIndex index) {
 // model parameter has been accumulated into its gradient tensor.
 // This function is only to be called from the autograd thread.
 void Reducer::autograd_hook(VariableIndex index) {
-  return;
-  printf("%s:%d\n", __FILE__, __LINE__);
+  // printf("%s:%d\n", __FILE__, __LINE__);
   std::lock_guard<std::mutex> lock(this->mutex_);
   // Since it gets here, this param has been used for this iteration. We want
   // to mark it in local_used_maps_. During no_sync session, the same var can
@@ -300,7 +299,7 @@ void Reducer::autograd_hook(VariableIndex index) {
 }
 
 void Reducer::mark_variable_ready(VariableIndex index) {
-  printf("%s:%d\n", __FILE__, __LINE__);
+  // printf("%s:%d\n", __FILE__, __LINE__);
   const auto replica_index = index.replica_index;
   const auto variable_index = index.variable_index;
   TORCH_CHECK(replica_index < replicas_.size(), "Out of range replica index.");
