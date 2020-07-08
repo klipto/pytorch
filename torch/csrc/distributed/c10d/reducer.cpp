@@ -43,7 +43,8 @@ Reducer::Reducer(
     std::vector<std::vector<torch::autograd::Variable>> replicas,
     std::vector<std::vector<size_t>> bucket_indices,
     std::shared_ptr<c10d::ProcessGroup> process_group,
-    std::vector<std::vector<bool>> expect_sparse_gradients)
+    std::vector<std::vector<bool>> expect_sparse_gradients,
+    bool use_fused_all_reduce)
     : replicas_(std::move(replicas)),
       process_group_(std::move(process_group)),
       expect_sparse_gradients_(std::move(expect_sparse_gradients)),
@@ -52,7 +53,8 @@ Reducer::Reducer(
       next_bucket_(0),
       has_marked_unused_parameters_(false),
       local_used_maps_reduced_(false),
-      backward_stats_base_(0) {
+      backward_stats_base_(0),
+      use_fused_all_reduce_(use_fused_all_reduce) {
   TORCH_CHECK(replicas_.size() >= 1, "Expected at least one model replica.");
   TORCH_CHECK(replicas_[0].size() >= 1, "Expected at least one parameter.");
   // printf("%s:%d\n", __FILE__, __LINE__);
@@ -375,6 +377,7 @@ void Reducer::mark_variable_ready(VariableIndex index) {
       // allreduce respect the current stream, so will be sequenced correctly.
       local_used_maps_dev_[i].copy_(local_used_maps_[i], true);
     }
+    // printf("%s:%d local_used_maps_.size() %ld [].size() %ld\n", __FILE__, __LINE__, local_used_maps_.size(), local_used_maps_[0].numel());
     local_used_work_ = process_group_->allreduce(local_used_maps_dev_);
 
     torch::autograd::Engine::get_default_engine().queue_callback([=] {
@@ -401,7 +404,9 @@ void Reducer::mark_bucket_ready(size_t bucket_index) {
        next_bucket_++) {
     auto& bucket = buckets_[next_bucket_];
     std::vector<at::Tensor> tensors;
+    std::vector<at::Tensor> weights;
     tensors.reserve(bucket.replicas.size());
+    bool all_sizes_are_128B_aligned = false;
     for (const auto& replica : bucket.replicas) {
       // TODO(@pietern): Ensure proper synchronization with the CUDA events
       // that recorded copies into this contents tensor. If these copies are
@@ -413,8 +418,15 @@ void Reducer::mark_bucket_ready(size_t bucket_index) {
       // do any extra synchronization here.
       //
       tensors.push_back(replica.contents);
+      weights.push_back(replica.variables[0]);
+      //TODO: this is not accurate though.
+      all_sizes_are_128B_aligned = ((replica.contents.numel() % 128) == 0);
     }
-    bucket.work = process_group_->allreduce(tensors);
+    // printf("%s:%d tensors.size() %ld tensors[0].size() %ld\n", __FILE__, __LINE__, tensors.size(), tensors[0].numel());
+    if (use_fused_all_reduce_ and all_sizes_are_128B_aligned) 
+      bucket.work = process_group_->sgd_update(weights, tensors, 1.0f);
+    else
+      bucket.work = process_group_->allreduce(tensors);
   }
 }
 

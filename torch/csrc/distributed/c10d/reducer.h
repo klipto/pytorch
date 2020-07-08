@@ -23,7 +23,8 @@ class Reducer {
       std::vector<std::vector<torch::autograd::Variable>> replicas,
       std::vector<std::vector<size_t>> bucket_indices,
       std::shared_ptr<c10d::ProcessGroup> process_group,
-      std::vector<std::vector<bool>> expect_sparse_gradients);
+      std::vector<std::vector<bool>> expect_sparse_gradients,
+      bool use_fused_all_reduce);
 
   ~Reducer() noexcept(false);
 
@@ -48,6 +49,9 @@ class Reducer {
   }
 
  protected:
+  // Use fused version of optimizer update
+  bool use_fused_all_reduce_;
+
   // Forward declaration.
   struct Bucket;
 

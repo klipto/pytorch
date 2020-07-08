@@ -114,7 +114,7 @@ class ProcessGroup {
   virtual std::shared_ptr<ProcessGroup::Work> sgd_update(
       std::vector<at::Tensor>& weight,
       std::vector<at::Tensor>& gradient,
-      std::vector<at::Tensor>& alpha,
+      float alpha,
       const AllreduceOptions& opts = AllreduceOptions()) {
     throw std::runtime_error("not impl");
   }

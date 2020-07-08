@@ -80,7 +80,7 @@ def train(gpu, args):
     
     use_fused_sgd = True
     # Wrap the model
-    model = nn.parallel.DistributedDataParallel(orig_model, device_ids=[gpu], reduce_grads=not use_fused_sgd)
+    model = nn.parallel.DistributedDataParallel(orig_model, device_ids=[gpu], use_fused_all_reduce_weight_update=use_fused_sgd)
     params = [m for m in model.parameters()]
     # Data loading code
     train_dataset = MyIterableDataset(start = 0, end = 1000, gpu = gpu)
@@ -95,9 +95,9 @@ def train(gpu, args):
                                             #    sampler=train_sampler
                                                )
 
-    alpha = torch.ones([1], dtype=torch.float32).cuda(non_blocking=True)
+    #alpha = 1#torch.ones([1], dtype=torch.float32)
     total_step = len(train_loader)/batch_size
-    labels = torch.ones([100, 1], dtype=torch.long).cuda(non_blocking=True) #labels.cuda(non_blocking=True)
+    labels = torch.ones([100, 1], dtype=torch.float32).cuda(non_blocking=True) #labels.cuda(non_blocking=True)
     total_time = 0
 
     for i, images in enumerate(train_loader):
@@ -112,18 +112,28 @@ def train(gpu, args):
             
             #print("optimizer.step()")
             #print(params[0].grad)
-            if use_fused_sgd:
-                loss.backward()
-                # weight = torch.ones([TENSOR_SIZE], dtype=torch.float32).cuda(non_blocking=True)
-                # grad = torch.ones([TENSOR_SIZE], dtype=torch.float32).cuda(non_blocking=True)
-                torch.distributed.sgd_update(params[0], params[0].grad, alpha)
-                # print("gpu", gpu, "grad", params[0].grad)
-                # print("weight", orig_model.fc.weight)
-            else:
-                loss.backward()
+            # if use_fused_sgd:
+            #     loss.backward()
+            #     # weight = torch.ones([TENSOR_SIZE], dtype=torch.float32).cuda(non_blocking=True)
+            #     # grad = torch.ones([TENSOR_SIZE], dtype=torch.float32).cuda(non_blocking=True)
+            #     # torch.distributed.sgd_update(params[0], params[0].grad, alpha)
+            #     print("gpu", gpu, "grad", params[0].grad)
+            #     print("weight", orig_model.fc.weight, hex(orig_model.fc.weight.data_ptr()))
+            # else:
+            #     loss.backward()
+            #     # optimizer.step()
+            #     print("gpu ", gpu, " grad", params[0].grad)
+            #     print("weight",  orig_model.fc.weight, hex(orig_model.fc.weight.data_ptr()))
+
+            loss.backward()
+
+            if not use_fused_sgd:
                 optimizer.step()
-                # print("gpu ", gpu, " grad", params[0].grad)
-                # print("weight", params[0])
+            
+            # print("gpu ", gpu, " grad", params[0].grad)
+            # print("gpu ", gpu, "weight",  orig_model.fc.weight, hex(orig_model.fc.weight.data_ptr()))
+            
+
             # torch.distributed.all_reduce(torch.zeros([TENSOR_SIZE], dtype=torch.float32).cuda(non_blocking=True))
            # print(model.grad)
             # if (i + 1) % 1 == 0:

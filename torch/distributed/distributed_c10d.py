@@ -874,7 +874,7 @@ def sgd_update(weight, gradient, alpha, op=ReduceOp.SUM, group=group.WORLD, asyn
     opts.reduceOp = op
     if group == GroupMember.WORLD:
         _check_default_pg()
-        work = _default_pg.sgd_update([weight], [gradient], [alpha], opts)
+        work = _default_pg.sgd_update([weight], [gradient], float(alpha), opts)
     else:
         assert False, "not implemented"
         work = group.allreduce([tensor], opts)
