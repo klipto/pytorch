@@ -213,7 +213,8 @@ class DistributedDataParallel(Module):
                  process_group=None, bucket_cap_mb=25,
                  find_unused_parameters=False,
                  check_reduction=False,
-                 use_fused_all_reduce_weight_update=True):
+                 use_fused_all_reduce_weight_update=False,
+                 optimizer=None):
 
         super(DistributedDataParallel, self).__init__()
 
@@ -264,7 +265,12 @@ class DistributedDataParallel(Module):
         self.require_backward_grad_sync = True
         self.require_forward_param_sync = True
         self.use_fused_all_reduce_weight_update = use_fused_all_reduce_weight_update
+        self.optimizer = optimizer
+        assert (use_fused_all_reduce_weight_update == True and self.optimizer != None) or 
+               (use_fused_all_reduce_weight_update == False and self.optimizer == None), 
+            ("DistributedDataParallel requires optimizer when using fused all reduce")
 
+            
         if check_reduction:
             # This argument is no longer used since the reducer
             # will ensure reduction completes even if some parameters

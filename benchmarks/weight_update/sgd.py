@@ -80,7 +80,8 @@ def train(gpu, args):
     
     use_fused_sgd = True
     # Wrap the model
-    model = nn.parallel.DistributedDataParallel(orig_model, device_ids=[gpu], use_fused_all_reduce_weight_update=use_fused_sgd)
+    model = nn.parallel.DistributedDataParallel(orig_model, device_ids=[gpu], use_fused_all_reduce_weight_update=use_fused_sgd,
+                                                optimizer=optimizer)
     params = [m for m in model.parameters()]
     # Data loading code
     train_dataset = MyIterableDataset(start = 0, end = 1000, gpu = gpu)
@@ -99,7 +100,8 @@ def train(gpu, args):
     total_step = len(train_loader)/batch_size
     labels = torch.ones([100, 1], dtype=torch.float32).cuda(non_blocking=True) #labels.cuda(non_blocking=True)
     total_time = 0
-
+    backward_time = 0
+    
     for i, images in enumerate(train_loader):
         start = datetime.now()
         for epoch in range(1000):
@@ -124,12 +126,13 @@ def train(gpu, args):
             #     # optimizer.step()
             #     print("gpu ", gpu, " grad", params[0].grad)
             #     print("weight",  orig_model.fc.weight, hex(orig_model.fc.weight.data_ptr()))
-
+            t1 = datetime.now()
             loss.backward()
 
             if not use_fused_sgd:
                 optimizer.step()
-            
+            t2 = datetime.now()
+            backward_time += (t2-t1).total_seconds()
             # print("gpu ", gpu, " grad", params[0].grad)
             # print("gpu ", gpu, "weight",  orig_model.fc.weight, hex(orig_model.fc.weight.data_ptr()))
             
@@ -143,6 +146,7 @@ def train(gpu, args):
         total_time += (end - start).total_seconds()
     if gpu == 0:
         print("Training complete in: " + str(total_time) + " seconds")
+        print("Backward pass: " + str(backward_time) + " seconds")
 
 
 if __name__ == '__main__':
