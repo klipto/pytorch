@@ -302,14 +302,16 @@ They are used in specifying strategies for reduction collectives, e.g.,
               py::arg("root"),
               py::call_guard<py::gil_scoped_release>())
 
-    .def(
-	 "sgd_update",
-	 &::c10d::ProcessGroup::sgd_update,
-	 py::arg("weight"),
-	 py::arg("gradient"),
-   py::arg("alpha"),
-	 py::arg("opts") = ::c10d::AllreduceOptions(),
-	 py::call_guard<py::gil_scoped_release>())
+          .def(
+	       "adam_update",
+	       &::c10d::ProcessGroup::adam_update,
+	       py::arg("weights"),
+	       py::arg("ms"),
+	       py::arg("vs"),
+	       py::arg("grads"),
+	       py::arg("alpha"),
+	       py::arg("opts") = ::c10d::AllreduceOptions(),
+	       py::call_guard<py::gil_scoped_release>())
     
           .def(
               "allreduce",

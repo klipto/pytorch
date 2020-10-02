@@ -784,16 +784,23 @@ std::shared_ptr<ProcessGroup::Work> ProcessGroupNCCL::collective(
 //   return work;  
 // }
 
-std::shared_ptr<ProcessGroup::Work> ProcessGroupNCCL::sgd_update(
-    std::vector<at::Tensor>& weights,
-    std::vector<at::Tensor>& gradients,
-    float alpha,
-    const AllreduceOptions& opts) {
-  check_gpu_tensors(weights);
-  check_gpu_tensors(gradients);
+  std::shared_ptr<ProcessGroup::Work> adam_update(
+      std::vector<at::Tensor>& params,
+      std::vector<at::Tensor>& ms,
+      std::vector<at::Tensor>& vs,      
+      std::vector<at::Tensor>& grads,
+      float alpha,
+      const AllreduceOptions& opts = AllreduceOptions()) {
+  
+    check_gpu_tensors(params);
+    check_gpu_tensors(ms);
+    check_gpu_tensors(vs);
+    check_gpu_tensors(grads);
 
-  return collective(
-      weights,
+    return ::allreduce(grads);
+      /*
+    return collective(
+		      weights,
       gradients,
       [&](at::Tensor& weight,
           at::Tensor& grad,
@@ -811,6 +818,7 @@ std::shared_ptr<ProcessGroup::Work> ProcessGroupNCCL::sgd_update(
             stream.stream());
         return v;
       });
+      */
     // C10D_NCCL_CHECK(ncclAllReduce2(gradient.data_ptr(),
 		// 		   nullptr,
 		// 		   weight.data_ptr(),

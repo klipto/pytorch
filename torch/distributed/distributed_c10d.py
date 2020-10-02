@@ -864,20 +864,23 @@ def all_reduce_multigpu(tensor_list,
     else:
         work.wait()
 
-def sgd_update(weight, gradient, alpha, op=ReduceOp.SUM, group=group.WORLD, async_op=False):
-    _check_single_tensor(weight, "weight")
-    _check_single_tensor(gradient, "gradient")
+def adam_update(params, ms, vs, grads, alpha, group=group.WORLD, async_op=False):
+    _check_tensor_list(params, "params")
+    _check_tensor_list(ms, "ms")
+    _check_tensor_list(vs, "vs")
+    _check_tensor_list(grads, "grads")
+    
     if _rank_not_in_group(group):
         return
     
     opts = AllreduceOptions()
-    opts.reduceOp = op
+    opts.reduceOp = ReduceOp.SUM
     if group == GroupMember.WORLD:
         _check_default_pg()
-        work = _default_pg.sgd_update([weight], [gradient], float(alpha), opts)
+        work = _default_pg.adam_update(
+            params, ms, vs, grads, float(alpha), ops)
     else:
         assert False, "not implemented"
-        work = group.allreduce([tensor], opts)
 
     if async_op:
         return work
