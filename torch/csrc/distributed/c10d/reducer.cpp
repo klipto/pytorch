@@ -424,8 +424,7 @@ void Reducer::mark_bucket_ready(size_t bucket_index) {
     }
     // printf("%s:%d tensors.size() %ld tensors[0].size() %ld\n", __FILE__, __LINE__, tensors.size(), tensors[0].numel());
     if (use_fused_all_reduce_ and all_sizes_are_128B_aligned) 
-      //bucket.work = process_group_->sgd_update(weights, tensors, 1.0f);
-      throw std::runtime_error("not impl");
+      bucket.work = process_group_->adam_update(weights, tensors, tensors, tensors, 1.0f);
     else
       bucket.work = process_group_->allreduce(tensors);
   }

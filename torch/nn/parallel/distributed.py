@@ -266,9 +266,7 @@ class DistributedDataParallel(Module):
         self.require_forward_param_sync = True
         self.use_fused_all_reduce_weight_update = use_fused_all_reduce_weight_update
         self.optimizer = optimizer
-        assert (use_fused_all_reduce_weight_update == True and self.optimizer != None) or 
-               (use_fused_all_reduce_weight_update == False and self.optimizer == None), 
-            ("DistributedDataParallel requires optimizer when using fused all reduce")
+        #assert (use_fused_all_reduce_weight_update == True and self.optimizer != None) or (use_fused_all_reduce_weight_update == False and self.optimizer == None), ("DistributedDataParallel requires optimizer when using fused all reduce")
 
             
         if check_reduction:

@@ -20,7 +20,7 @@ def main():
     args = parser.parse_args()
     args.world_size = args.gpus * args.nodes
     os.environ['MASTER_ADDR'] = '127.0.0.1'
-    os.environ['MASTER_PORT'] = '8888'
+    os.environ['MASTER_PORT'] = '12308'
     mp.spawn(train, nprocs=args.gpus, args=(args,))
 
 TENSOR_SIZE = 512*1024
@@ -82,6 +82,7 @@ def train(gpu, args):
     # Wrap the model
     model = nn.parallel.DistributedDataParallel(orig_model, device_ids=[gpu], use_fused_all_reduce_weight_update=use_fused_sgd,
                                                 optimizer=optimizer)
+    #model = orig_model
     params = [m for m in model.parameters()]
     # Data loading code
     train_dataset = MyIterableDataset(start = 0, end = 1000, gpu = gpu)
@@ -128,7 +129,6 @@ def train(gpu, args):
             #     print("weight",  orig_model.fc.weight, hex(orig_model.fc.weight.data_ptr()))
             t1 = datetime.now()
             loss.backward()
-
             if not use_fused_sgd:
                 optimizer.step()
             t2 = datetime.now()
